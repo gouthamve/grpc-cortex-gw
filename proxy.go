@@ -8,7 +8,6 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/httpgrpc/server"
-	"github.com/weaveworks/common/middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -36,7 +35,6 @@ func newGRPCWriteProxy(endpoint string) (*grpcProxy, error) {
 		}),
 		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(
 			grpc_prometheus.UnaryClientInterceptor,
-			middleware.ClientUserHeaderInterceptor,
 		)),
 	}
 
