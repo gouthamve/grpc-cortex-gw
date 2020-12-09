@@ -26,8 +26,6 @@ local k = import 'github.com/grafana/jsonnet-libs/ksonnet-util/kausal.libsonnet'
     k.util.resourcesRequests('1', '512Mi') +
     jaeger_mixin,
 
-  local deployment = k.apps.v1.deployment,
-
   grpc_cortex_gw_deployment:
     deployment.new('grpc-cortex-gw', $._config.replicas, [$.grpc_cortex_gw_container]) +
     k.util.antiAffinity,
