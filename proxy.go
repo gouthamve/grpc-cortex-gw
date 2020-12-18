@@ -8,6 +8,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/httpgrpc/server"
+	"github.com/weaveworks/common/middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -15,8 +16,8 @@ import (
 const grpcServiceConfig = `{"loadBalancingPolicy":"round_robin"}`
 
 // NewProxy initializes the cortex reverse proxies.
-func NewProxy(endpoint string) (http.Handler, error) {
-	return newGRPCWriteProxy(endpoint)
+func NewProxy(endpoint string, enableMultitenancy bool) (http.Handler, error) {
+	return newGRPCWriteProxy(endpoint, enableMultitenancy)
 }
 
 type grpcProxy struct {
@@ -24,7 +25,15 @@ type grpcProxy struct {
 	conn   *grpc.ClientConn
 }
 
-func newGRPCWriteProxy(endpoint string) (*grpcProxy, error) {
+func newGRPCWriteProxy(endpoint string, enableMultitenancy bool) (*grpcProxy, error) {
+	interceptors := []grpc.UnaryClientInterceptor{
+		grpc_prometheus.UnaryClientInterceptor,
+	}
+
+	if enableMultitenancy {
+		interceptors = append(interceptors, middleware.ClientUserHeaderInterceptor)
+	}
+
 	dialOptions := []grpc.DialOption{
 		grpc.WithDefaultServiceConfig(grpcServiceConfig),
 		grpc.WithInsecure(),
@@ -33,9 +42,7 @@ func newGRPCWriteProxy(endpoint string) (*grpcProxy, error) {
 			Timeout:             time.Second * 5,
 			PermitWithoutStream: true,
 		}),
-		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(
-			grpc_prometheus.UnaryClientInterceptor,
-		)),
+		grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(interceptors...)),
 	}
 
 	conn, err := grpc.Dial(endpoint, dialOptions...)
