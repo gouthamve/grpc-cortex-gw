@@ -9,6 +9,7 @@ import (
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/httpgrpc/server"
 	"github.com/weaveworks/common/middleware"
+	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -16,21 +17,22 @@ import (
 const grpcServiceConfig = `{"loadBalancingPolicy":"round_robin"}`
 
 // NewProxy initializes the cortex reverse proxies.
-func NewProxy(endpoint string, enableMultitenancy bool) (http.Handler, error) {
-	return newGRPCWriteProxy(endpoint, enableMultitenancy)
+func NewProxy(endpoint string, tenantID string) (http.Handler, error) {
+	return newGRPCWriteProxy(endpoint, tenantID)
 }
 
 type grpcProxy struct {
-	client httpgrpc.HTTPClient
-	conn   *grpc.ClientConn
+	client   httpgrpc.HTTPClient
+	tenantID string
+	conn     *grpc.ClientConn
 }
 
-func newGRPCWriteProxy(endpoint string, enableMultitenancy bool) (*grpcProxy, error) {
+func newGRPCWriteProxy(endpoint string, tenantID string) (*grpcProxy, error) {
 	interceptors := []grpc.UnaryClientInterceptor{
 		grpc_prometheus.UnaryClientInterceptor,
 	}
 
-	if enableMultitenancy {
+	if tenantID != "" {
 		interceptors = append(interceptors, middleware.ClientUserHeaderInterceptor)
 	}
 
@@ -51,13 +53,24 @@ func newGRPCWriteProxy(endpoint string, enableMultitenancy bool) (*grpcProxy, er
 	}
 
 	return &grpcProxy{
-		client: httpgrpc.NewHTTPClient(conn),
-		conn:   conn,
+		client:   httpgrpc.NewHTTPClient(conn),
+		tenantID: tenantID,
+		conn:     conn,
 	}, nil
 }
 
 // ServeHTTP implements http.Handler
 func (g *grpcProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if g.tenantID != "" {
+		ctx := user.InjectOrgID(r.Context(), tenantID)
+		if err := user.InjectOrgIDIntoHTTPRequest(ctx, r); err != nil {
+			errorHandler(w, r, err)
+			return
+		}
+
+		r = r.WithContext(ctx)
+	}
+
 	req, err := server.HTTPRequest(r)
 	if err != nil {
 		errorHandler(w, r, err)

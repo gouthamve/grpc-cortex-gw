@@ -7,19 +7,19 @@ import (
 )
 
 var (
-	cortexEndpoint     string
-	listenAddress      string
-	enableMultitenancy bool
+	cortexEndpoint string
+	listenAddress  string
+	tenantID       string
 )
 
 func main() {
 	// Register flags.
 	flag.StringVar(&cortexEndpoint, "cortex.endpoint", "", "The endpoint of the Cortex distributor. In grpc LB format.")
-	flag.BoolVar(&enableMultitenancy, "cortex.enable-multitenancy", false, "Enables passing of X-Scope-OrgId header down.")
+	flag.StringVar(&tenantID, "cortex.tenant-id", "", "What tenant ID to set.")
 	flag.StringVar(&listenAddress, "server.listen-address", ":8080", "The listen address for the gateway.")
 	flag.Parse()
 
-	handler, err := NewProxy(cortexEndpoint, enableMultitenancy)
+	handler, err := NewProxy(cortexEndpoint, tenantID)
 	if err != nil {
 		panic(err)
 	}
