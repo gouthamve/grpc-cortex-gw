@@ -24,7 +24,6 @@ func NewProxy(endpoint string, tenantID string) (http.Handler, error) {
 type grpcProxy struct {
 	client   httpgrpc.HTTPClient
 	tenantID string
-	conn     *grpc.ClientConn
 }
 
 func newGRPCWriteProxy(endpoint string, tenantID string) (*grpcProxy, error) {
@@ -55,7 +54,6 @@ func newGRPCWriteProxy(endpoint string, tenantID string) (*grpcProxy, error) {
 	return &grpcProxy{
 		client:   httpgrpc.NewHTTPClient(conn),
 		tenantID: tenantID,
-		conn:     conn,
 	}, nil
 }
 

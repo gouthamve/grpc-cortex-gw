@@ -4,6 +4,10 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -19,14 +23,18 @@ func main() {
 	flag.StringVar(&listenAddress, "server.listen-address", ":8080", "The listen address for the gateway.")
 	flag.Parse()
 
-	handler, err := NewProxy(cortexEndpoint, tenantID)
+	httpgrpcProxy, err := NewProxy(cortexEndpoint, tenantID)
 	if err != nil {
 		panic(err)
 	}
 
-	// Register logger.
-	http.Handle("/", handler)
+	r := mux.NewRouter()
+	r.Handle("/api/v1/push/influx/write", HandlerForInfluxLine(httpgrpcProxy))
+	r.PathPrefix("/").Handler(httpgrpcProxy)
 
-	// Run a server with grpcProxy
+	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+	// http.Handle("/", httpgrpcProxy)
+	http.Handle("/", loggedRouter)
+
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
